@@ -2,6 +2,7 @@ import re
 import tweepy
 from tweepy import OAuthHandler
 from textblob import TextBlob
+import time
 
 class TwitterClient(object):
     '''
@@ -25,6 +26,7 @@ class TwitterClient(object):
             self.auth.set_access_token(access_token, access_token_secret)
             # create tweepy API object to fetch tweets
             self.api = tweepy.API(self.auth)
+
         except:
             print("Error: Authentication Failed")
 
@@ -57,42 +59,49 @@ class TwitterClient(object):
         '''
         # empty list to store parsed tweets
         tweets = []
-
-        try:
-            # call twitter api to fetch tweets
-            fetched_tweets = self.api.search(q = query, count = count)
-
-            # parsing tweets one by one
-            for tweet in fetched_tweets:
+        
+        c = tweepy.Cursor(self.api.search, q=query).items(count)
+        while True:
+            try:
+                tweet = c.next()
+                # call twitter api to fetch tweets and parse tweets one by one
                 # empty dictionary to store required params of a tweet
                 parsed_tweet = {}
-
+                
                 # saving text of tweet
                 parsed_tweet['text'] = tweet.text
                 # saving sentiment of tweet
                 parsed_tweet['sentiment'] = self.get_tweet_sentiment(tweet.text)
+                # saving the created time of tweet
+                parsed_tweet['time'] = tweet.created_at
 
                 # appending parsed tweet to tweets list
+                tweets.append(parsed_tweet)
+                
                 if tweet.retweet_count > 0:
                     # if tweet has retweets, ensure that it is appended only once
                     if parsed_tweet not in tweets:
                         tweets.append(parsed_tweet)
                 else:
                     tweets.append(parsed_tweet)
-
-            # return parsed tweets
-            return tweets
-
-        except tweepy.TweepError as e:
-            # print error (if any)
-            print("Error : " + str(e))
-
+                
+                # return parsed tweets
+                if len(tweets) == count:
+                    return tweets
+            
+            except tweepy.TweepError as e:
+                print("Error : " + str(e))
+                print("please wait for 15mins...")
+                time.sleep(60 * 15)
+                continue
+                
 def main():
     # creating object of TwitterClient Class
     api = TwitterClient()
     # calling function to get tweets
     search_input = raw_input("Please input the content you want to search: ")
-    tweets = api.get_tweets(query = search_input, count = 1000)
+    cnt = raw_input("Please input the quantity of the tweets you want to search: ")
+    tweets = api.get_tweets(query = search_input, count = int(cnt))
 
     # picking positive tweets from tweets
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
@@ -105,15 +114,22 @@ def main():
     # percentage of neutral tweets
     print("Neutral tweets percentage: {} % ".format(100*(len(tweets) - len(ntweets) - len(ptweets))/len(tweets)))
 
-    # printing first 5 positive tweets
+    print(len(tweets))
+    print(len(ptweets))
+    print(len(ntweets))
+    # print positive tweets
     print("\n\nPositive tweets:")
-    for tweet in ptweets[:10]:
+    for tweet in ptweets[:-1]:
         print(tweet['text'])
+        print(tweet['time'])
+        print('-------------------')
 
-    # printing first 5 negative tweets
+    # print negative tweets
     print("\n\nNegative tweets:")
-    for tweet in ntweets[:10]:
+    for tweet in ntweets[:-1]:
         print(tweet['text'])
+        print(tweet['time'])
+        print('-------------------')
 
 if __name__ == "__main__":
     # calling main function
