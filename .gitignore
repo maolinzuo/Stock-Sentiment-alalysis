@@ -1,0 +1,12 @@
+*.pyc
+*.csv
+*.json
+*.log
+bin
+include
+lib
+share
+metastore_db
+.idea
+tweets
+spark-warehouse
