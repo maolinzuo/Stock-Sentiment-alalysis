@@ -1,16 +1,20 @@
-from pyspark.mllib.classification import NaiveBayes, NaiveBayesModel
+from pyspark import SparkConf, SparkContext
+from pyspark.sql import SparkSession
+import os, sys, shutil
 from pyspark.mllib.regression import LabeledPoint
 from pyspark.mllib.feature import HashingTF
 from pyspark.mllib.feature import IDF
-from pyspark import SparkConf, SparkContext
-from pyspark.sql import SparkSession
-import os,sys,shutil
-import getTweet
+
+#from pyspark.mllib.classification.LogisticRegressionModel import LogisticRegressionWithSGD
+#from pyspark.ml.classification import LogisticRegression
+from pyspark.mllib.classification import LogisticRegressionWithSGD, LogisticRegressionWithLBFGS
 
 conf = SparkConf().setAppName("appName").setMaster("local")
-#conf.set("spark.executor.memory", "6g")
+conf.set("spark.executor.memory", "4g")
 sc = SparkContext(conf=conf)
 spark = SparkSession(sc)
+
+
 
 def parseTweet(line):
     parts = line.split(',')
@@ -37,19 +41,22 @@ def train():
     print("Training..........")
     script_dir = os.path.dirname(__file__)
     filename_training="training.1600000.processed.noemoticon.csv"
+    #filename_training="train.csv"
     training_file = os.path.join(script_dir, filename_training)
     allData = sc.textFile(training_file)
     header = allData.first()
     training = allData.filter(lambda x: x != header).map(parseTweet)
     labeled_training_data=vectorize(training)
-    print("Training Naive Bayes model....")
-    nb_model = NaiveBayes.train(labeled_training_data, 1.0)
+    print("Training logistic regression model....")
+    lrm_model = LogisticRegressionWithLBFGS.train(labeled_training_data, iterations=10,numClasses=5)
+
+    #lrm_model = LogisticRegressionWithSGD.train(labeled_training_data, iterations=10,numClasses=3)
     print("Done training")
-    nb_output_dir = '/home/emmittxu/Desktop/DataStreamProj/test/myNaiveBayesModel'
-    shutil.rmtree(nb_output_dir, ignore_errors=True)
-    nb_model.save(sc, nb_output_dir)
+    lrm_output_dir = '/home/emmittxu/Desktop/DataStreamProj/test/myLogisticRegressionModel'
+    shutil.rmtree(lrm_output_dir, ignore_errors=True)
+    lrm_model.save(sc, lrm_output_dir)
     print("Done saving model")
-    return nb_model, nb_output_dir
+    return lrm_model, lrm_output_dir
 
 def main():
     train()
